@@ -29,17 +29,26 @@ namespace Util
 	}
 }
 
+struct Entry
+{
+	bool isModified;
+	std::string value;
+	uint32_t line_no = 0;
+};
+
 class Section
 {
 friend class File;
 
 private:
-	std::map<std::string, std::string> entries;
+	bool isNew;
+	uint32_t lastLine;
+	std::map<std::string, Entry> entries;
 	
 public :
 	std::string& operator [] (const std::string& key)
 	{
-		return entries[key];
+		return entries[key].value;
 	}
 };
 
@@ -57,7 +66,6 @@ public :
 	
 	bool load(const std::string& path)
 	{
-		Section* current_section;
 		FILE* fp = fopen(path.c_str(), "r");
 		
 		if (!fp) return false;
@@ -67,11 +75,14 @@ public :
 		char line[10000]{'\0'};
 		char title[4096]{'\0'};
 		
+		uint32_t line_num = 0;
+		Section* current_section;
+		
 		using namespace Ini::Util;
 		
-		while(fgets(line, sizeof(line), fp))
+		while(fgets(line, sizeof(line), fp) && ++line_num)
 		{
-			if (line[0] == ';' or line[0] == '#'); // ignore comments
+			if (line[0] == ';'); // ignore comments
 			
 			else if (1 == sscanf(line, "[%[^]]]", title))
 			{
@@ -88,20 +99,27 @@ public :
 	
 	bool save(const std::string& path)
 	{
-		FILE* fp = fopen(path.c_str(), "w");
+		FILE* fp = fopen(path.c_str(), "a");
 		if (!fp) return false;
-		
-		std::string line;
 		
 		for (auto& [title, section] : sections)
 		{
-			line = "\n["+title+"]\n";
-			std::fprintf(fp, "%s\n", line.c_str());
-			
-			for (auto& [key, value] : section.entries)
+			if (section.isNew)
 			{
-				line = key+" = "+value;
-				std::fprintf(fp, "%s\n", line.c_str());
+				
+			}
+			for (auto& [key, entry] : section.entries)
+			{
+				if (entry.isModified)
+				{
+					std::string line = key+" = "+entry.value;
+					/*
+					if (entry.line_no == 0)
+						append_line(line);
+					else
+						set_nth_line(line, entry.line_no);
+					*/
+				}
 			}
 		}
 		
